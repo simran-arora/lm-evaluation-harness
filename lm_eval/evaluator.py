@@ -221,6 +221,7 @@ def simple_evaluate(
             "gen_kwargs": gen_kwargs,
         }
         results["git_hash"] = get_git_commit_hash()
+        # breakpoint()
         return results
     else:
         return None
@@ -420,6 +421,7 @@ def evaluate(
                 # subset instances to only this document id ; sort by idx
                 requests = list(filter(lambda x: x.doc_id == doc_id, task.instances))
                 requests.sort(key=lambda x: x.idx)
+                # breakpoint()
                 metrics = task.process_results(
                     doc, [req.filtered_resps[key] for req in requests]
                 )
@@ -498,7 +500,6 @@ def evaluate(
 
             metric_key = f"{metric},{key}"
             agg_fn = task.aggregation()[metric]
-
             results[task_name][metric_key] = agg_fn(items)
             results[task_name]["samples"] = len(items)
 
@@ -515,6 +516,22 @@ def evaluate(
                 results[task_name][f"{metric}_stderr,{key}"] = (
                     stderr_fn(items) if (stderr_fn and len(items) > 1) else "N/A"
                 )
+
+        import re
+        metric_key = f"contains"
+        contains_lst = []
+        for item in items:
+            try:
+                pred = item[0]['prediction_text']
+                answer = item[1]['answers']['text'][0]
+                contains = bool(re.search(re.compile(re.escape(answer), re.IGNORECASE), pred))
+                contains_lst.append(contains)
+            except:
+                    continue
+        if contains_lst:
+            results[task_name][metric_key] = sum(contains_lst) / len(contains_lst)
+            results[task_name]["samples"] = len(items)
+            results[task_name][f"{metric}_stderr,{key}"] = "N/A"
 
         if bool(results):
             for group, task_list in reversed(task_hierarchy.items()):

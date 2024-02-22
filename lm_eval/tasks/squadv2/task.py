@@ -157,15 +157,15 @@ class SQuAD2(ConfigurableTask):
             "answers": doc["answers"],
         }
 
-        return {
-            "exact": (
-                predictions,
-                references,
-            ),  # Exact match (the normalized answer exactly match the gold answer)
-            "f1": (
-                predictions,
-                references,
-            ),  # The F-score of predicted tokens versus the gold answer
+        res = {
+            # "exact": (
+            #     predictions,
+            #     references,
+            # ),  # Exact match (the normalized answer exactly match the gold answer)
+            # "f1": (
+            #     predictions,
+            #     references,
+            # ),  # The F-score of predicted tokens versus the gold answer
             "HasAns_exact": (
                 predictions,
                 references,
@@ -174,20 +174,25 @@ class SQuAD2(ConfigurableTask):
                 predictions,
                 references,
             ),  # The F-score of predicted tokens versus the gold answer
-            "NoAns_exact": (
-                predictions,
-                references,
-            ),  # Exact match (the normalized answer exactly match the gold answer)
-            "NoAns_f1": (
-                predictions,
-                references,
-            ),  # The F-score of predicted tokens versus the gold answer
-            "best_exact": (
-                predictions,
-                references,
-            ),  # Best exact match (with varying threshold)
-            "best_f1": (predictions, references),  # Best F1 (with varying threshold)
+            # "contains": (
+            #     predictions,
+            #     references,
+            # ),  # The F-score of predicted tokens versus the gold answer
+            # "NoAns_exact": (
+            #     predictions,
+            #     references,
+            # ),  # Exact match (the normalized answer exactly match the gold answer)
+            # "NoAns_f1": (
+            #     predictions,
+            #     references,
+            # ),  # The F-score of predicted tokens versus the gold answer
+            # "best_exact": (
+            #     predictions,
+            #     references,
+            # ),  # Best exact match (with varying threshold)
+            # "best_f1": (predictions, references),  # Best F1 (with varying threshold)
         }
+        return res
 
     def aggregation(self):
         """
@@ -195,32 +200,34 @@ class SQuAD2(ConfigurableTask):
             A dictionary where keys are the names of submetrics and values are
             functions that aggregate a list of metrics
         """
-        return {
-            "exact": partial(
-                _squad_agg, "exact"
-            ),  # Exact match (the normalized answer exactly match the gold answer)
-            "f1": partial(
-                _squad_agg, "f1"
-            ),  # The F-score of predicted tokens versus the gold answer
+        res =  {
+            # "exact": partial(
+            #     _squad_agg, "exact"
+            # ),  # Exact match (the normalized answer exactly match the gold answer)
+            # "f1": partial(
+            #     _squad_agg, "f1"
+            # ),  # The F-score of predicted tokens versus the gold answer
             "HasAns_exact": partial(
                 _squad_agg, "HasAns_exact"
             ),  # Exact match (the normalized answer exactly match the gold answer)
             "HasAns_f1": partial(
                 _squad_agg, "HasAns_f1"
             ),  # The F-score of predicted tokens versus the gold answer
-            "NoAns_exact": partial(
-                _squad_agg, "NoAns_exact"
-            ),  # Exact match (the normalized answer exactly match the gold answer)
-            "NoAns_f1": partial(
-                _squad_agg, "NoAns_f1"
-            ),  # The F-score of predicted tokens versus the gold answer
-            "best_exact": partial(
-                _squad_agg, "best_exact"
-            ),  # Best exact match (with varying threshold)
-            "best_f1": partial(
-                _squad_agg, "best_f1"
-            ),  # Best F1 (with varying threshold)
+            # "NoAns_exact": partial(
+            #     _squad_agg, "NoAns_exact"
+            # ),  # Exact match (the normalized answer exactly match the gold answer)
+            # "NoAns_f1": partial(
+            #     _squad_agg, "NoAns_f1"
+            # ),  # The F-score of predicted tokens versus the gold answer
+            # "best_exact": partial(
+            #     _squad_agg, "best_exact"
+            # ),  # Best exact match (with varying threshold)
+            # "best_f1": partial(
+            #     _squad_agg, "best_f1"
+            # ),  # Best F1 (with varying threshold)
+            # "Contains": bool(re.search(re.compile(re.escape(label), re.IGNORECASE), pred))
         }
+        return res
 
     def higher_is_better(self):
         """
@@ -229,12 +236,46 @@ class SQuAD2(ConfigurableTask):
             whether a higher value of the submetric is better
         """
         return {
-            "exact": True,  # Exact match (the normalized answer exactly match the gold answer)
-            "f1": True,  # The F-score of predicted tokens versus the gold answer
+            # "exact": True,  # Exact match (the normalized answer exactly match the gold answer)
+            # "f1": True,  # The F-score of predicted tokens versus the gold answer
             "HasAns_exact": True,  # Exact match (the normalized answer exactly match the gold answer)
             "HasAns_f1": True,  # The F-score of predicted tokens versus the gold answer
-            "NoAns_exact": True,  # Exact match (the normalized answer exactly match the gold answer)
-            "NoAns_f1": True,  # The F-score of predicted tokens versus the gold answer
-            "best_exact": True,  # Best exact match (with varying threshold)
-            "best_f1": True,  # Best F1 (with varying threshold)
+            # "NoAns_exact": True,  # Exact match (the normalized answer exactly match the gold answer)
+            # "NoAns_f1": True,  # The F-score of predicted tokens versus the gold answer
+            # "best_exact": True,  # Best exact match (with varying threshold)
+            # "best_f1": True,  # Best F1 (with varying threshold)
         }
+
+
+    
+class SQuAD2_twice(SQuAD2):
+    VERSION = 3
+    DATASET_PATH = "squad_v2"
+    DATASET_NAME = None
+
+    def __init__(self):
+        super().__init__()
+
+    def doc_to_text(self, doc):
+        return (
+            "Title: "
+            + doc["title"]
+            + "\n\n"
+            + "Background: "
+            + doc["context"]
+            + "\n\n"
+            + "Question: "
+            + doc["question"]
+            + "\n\n"
+            "Title: "
+            + doc["title"]
+            + "\n\n"
+            + "Background: "
+            + doc["context"]
+            + "\n\n"
+            + "Question: "
+            + doc["question"]
+            + "\n\n"
+            + "Answer:"
+        )
+
