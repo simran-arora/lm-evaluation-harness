@@ -187,6 +187,26 @@ def parse_eval_args() -> argparse.Namespace:
             "E.g, `--seed 42` sets all three seeds to 42."
         ),
     )
+    parser.add_argument(
+        "--context_length",
+        type=int,
+        default=1000
+    )
+    parser.add_argument(
+        "--sequence_length",
+        type=int,
+        default=2048
+    )
+    parser.add_argument(
+        "--context_key",
+        type=str,
+        default="context"
+    )
+    parser.add_argument(
+        "--cutting_context",
+        action="store_true",
+        default=False
+    )
     return parser.parse_args()
 
 
@@ -275,7 +295,6 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
 
     eval_logger.info(f"Selected Tasks: {task_names}")
     eval_logger.info("Loading selected tasks...")
-
     results = evaluator.simple_evaluate(
         model=args.model,
         model_args=args.model_args,
@@ -296,6 +315,10 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
         random_seed=args.seed[0],
         numpy_random_seed=args.seed[1],
         torch_random_seed=args.seed[2],
+        context_length = args.context_length,
+        sequence_length = args.sequence_length,
+        context_key = args.context_key,
+        cutting_context = args.cutting_context
     )
 
     if results is not None:

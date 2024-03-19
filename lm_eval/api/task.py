@@ -348,7 +348,7 @@ class Task(abc.ABC):
     def doc_to_target(self, doc):
         pass
 
-    def build_all_requests(self, limit=None, rank=None, world_size=None) -> None:
+    def build_all_requests(self, limit=None, rank=None, world_size=None, tokenizer = None, context_length = 1000, sequence_length = 2048, context_key = "context", cutting_context = False) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
         if self.has_test_docs():
             docs = self.test_docs()
@@ -360,29 +360,59 @@ class Task(abc.ABC):
         eval_logger.info(f"Building contexts for {self.config.task} on rank {rank}...")
 
         instances = []
+        new_doc_set = {}
         for doc_id, doc in utils.create_iterator(
             enumerate(docs), rank, world_size, limit
         ):
             # sample fewshot context #TODO: need to offset doc_id by rank now!
-            fewshot_ctx = self.fewshot_context(
-                doc,
-                0 if self.config.num_fewshot is None else self.config.num_fewshot,
-            )
-
-            # TODO: we should override self.config.repeats if doing greedy gen so users don't waste time+compute
-            inst = self.construct_requests(
-                doc=doc,
-                ctx=fewshot_ctx,
-                metadata=(self.config["task"], doc_id, self.config.repeats),
-            )
-
-            if not isinstance(inst, list):
-                inst = [inst]
-
-            instances.extend(inst)
+            if cutting_context:
+                pad = (context_length // 2) + 50
+                doc_tokens = tokenizer.batch_encode_plus(
+                    [doc[context_key]], return_tensors="pt", 
+                    padding=True, truncation=True, 
+                    max_length=sequence_length,
+                )['input_ids'][0]
+                for start in range(0, len(doc_tokens), context_length):
+                    context_tokens = doc_tokens[start: start + context_length - pad]
+                    context = tokenizer.decode(context_tokens)
+                    #TODO: change this suitable for different task
+                    answer = self.doc_to_target(doc)
+                    answer_pattern = re.compile(re.escape(answer), re.IGNORECASE)
+                    if answer!="" and answer_pattern.search(context):
+                        doc_short = dict(doc)
+                        doc_short["new_id"] = len(instances) + 1
+                        doc_short[context_key] = context
+                        fewshot_ctx = self.fewshot_context(
+                            doc_short,
+                            0 if self.config.num_fewshot is None else self.config.num_fewshot,
+                        ) 
+                        inst = self.construct_requests(
+                            doc=doc_short,
+                            ctx=fewshot_ctx,
+                            metadata=(self.config["task"], doc_short["new_id"], self.config.repeats),
+                        )
+                        new_doc_set[doc_short["new_id"]] = doc_short
+                        if not isinstance(inst, list):
+                            inst = [inst]
+                        instances.extend(inst)
+            else:
+                fewshot_ctx = self.fewshot_context(
+                    doc,
+                    0 if self.config.num_fewshot is None else self.config.num_fewshot,
+                )
+                inst = self.construct_requests(
+                            doc=doc,
+                            ctx=fewshot_ctx,
+                            metadata=(self.config["task"], doc_id, self.config.repeats),
+                        )
+                if not isinstance(inst, list):
+                    inst = [inst]
+                new_doc_set[doc_id] = doc
+                instances.extend(inst)
 
         self._instances = instances
         assert len(self._instances) != 0, "task.build_requests() did not find any docs!"
+        return new_doc_set
 
     @abc.abstractmethod
     def construct_requests(self, doc, ctx, **kwargs):
