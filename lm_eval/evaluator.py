@@ -46,6 +46,7 @@ def simple_evaluate(
     context_length: int = 1000,
     sequence_length: int = 2048,
     context_key: str = "context",
+    answer_key: list = ["value"],
     cutting_context: bool = False
 ):
     """Instantiate and evaluate a model on a list of tasks.
@@ -202,6 +203,7 @@ def simple_evaluate(
         context_length = context_length,
         sequence_length = sequence_length,
         context_key = context_key,
+        answer_key = answer_key,
         cutting_context = cutting_context,
     )
 
@@ -249,6 +251,7 @@ def evaluate(
     context_length: int = 1000,
     sequence_length: int = 2048,
     context_key: str = "context",
+    answer_key: list = ["value"],
     cutting_context: bool = False
 ):
     """Instantiate and evaluate a model on a list of tasks.
@@ -344,7 +347,7 @@ def evaluate(
                 raise RuntimeError("Task has neither test_docs nor validation_docs")
             limit = int(len(task_docs) * limit) if limit < 1.0 else int(limit)
 
-        new_doc_set = task.build_all_requests(limit=limit, rank=lm.rank, world_size=lm.world_size, tokenizer = lm.tokenizer, context_length = context_length, sequence_length = sequence_length, context_key = context_key, cutting_context = cutting_context)
+        new_doc_set = task.build_all_requests(limit=limit, rank=lm.rank, world_size=lm.world_size, tokenizer = lm.tokenizer, context_length = context_length, sequence_length = sequence_length, context_key = context_key, cutting_context = cutting_context, answer_key = answer_key)
 
         eval_logger.debug(
             f"Task: {task_name}; number of requests on this rank: {len(task.instances)}"

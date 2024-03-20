@@ -348,7 +348,7 @@ class Task(abc.ABC):
     def doc_to_target(self, doc):
         pass
 
-    def build_all_requests(self, limit=None, rank=None, world_size=None, tokenizer = None, context_length = 1000, sequence_length = 2048, context_key = "context", cutting_context = False) -> None:
+    def build_all_requests(self, limit=None, rank=None, world_size=None, tokenizer = None, context_length = 1000, sequence_length = 2048, context_key = "context", cutting_context = False, answer_key = ["value"]) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
         if self.has_test_docs():
             docs = self.test_docs()
@@ -361,24 +361,55 @@ class Task(abc.ABC):
 
         instances = []
         new_doc_set = {}
+        # shuffle the docs, setting the random number here
+        random.seed(1)  
+        shuffled_docs = list(docs) 
+        random.shuffle(shuffled_docs) 
         for doc_id, doc in utils.create_iterator(
-            enumerate(docs), rank, world_size, limit
+            enumerate(shuffled_docs), rank, world_size, limit
         ):
             # sample fewshot context #TODO: need to offset doc_id by rank now!
             if cutting_context:
                 pad = (context_length // 2) + 50
+                #doc[context_key] = doc[context_key].replace("--", " ")
                 doc_tokens = tokenizer.batch_encode_plus(
                     [doc[context_key]], return_tensors="pt", 
                     padding=True, truncation=True, 
                     max_length=sequence_length,
                 )['input_ids'][0]
-                for start in range(0, len(doc_tokens), context_length):
-                    context_tokens = doc_tokens[start: start + context_length - pad]
+                start = int(0)
+                already_moving = False
+                already_end = False
+                while start < len(doc_tokens):
+                    context_tokens = doc_tokens[start: min(start + context_length - pad, len(doc_tokens))]
                     context = tokenizer.decode(context_tokens)
-                    #TODO: change this suitable for different task
-                    answer = self.doc_to_target(doc)
-                    answer_pattern = re.compile(re.escape(answer), re.IGNORECASE)
-                    if answer!="" and answer_pattern.search(context):
+                    pos_start = -1
+                    is_appear = True
+                    for key in answer_key:
+                        answer = doc[key]
+                        if(answer == "" or len(answer) < 1):
+                            continue
+                        answer_pattern = re.compile(re.escape(answer), re.IGNORECASE)
+                        if answer_match := answer_pattern.search(context):
+                            if pos_start == -1 or pos_start > answer_match.start():
+                                pos_start = answer_match.start()
+                        else:
+                            is_appear = False
+                    if is_appear and pos_start > -1:
+                        #fulfill the context lentth to context_length - pad
+                        if start>0 and len(doc_tokens) - start < context_length - pad and not already_end:
+                            start = max(0, len(doc_tokens) - (context_length - pad) - 1)
+                            already_end = True
+                            print(doc_id, "###begin to fufill the text to context length", start, pos_start)
+                            continue
+                        #if label/answer appears at the beginning, move start position a little bit forward
+                        if start > (context_length - pad)/4 and pos_start * 4 < len(context) and not already_moving:
+                            start = max(0, int(start - (context_length-pad)/4))
+                            already_moving = True
+                            print(doc_id, "###begin to move chunking starting position", start, pos_start)
+                            continue
+                        already_moving = False
+                        #print(start, pos_start, len(context), context_length-pad, len(doc_tokens), len(context_tokens))
                         doc_short = dict(doc)
                         doc_short["new_id"] = len(instances) + 1
                         doc_short[context_key] = context
@@ -395,6 +426,9 @@ class Task(abc.ABC):
                         if not isinstance(inst, list):
                             inst = [inst]
                         instances.extend(inst)
+                    start += context_length - pad
+                    if already_end:
+                        break
             else:
                 fewshot_ctx = self.fewshot_context(
                     doc,

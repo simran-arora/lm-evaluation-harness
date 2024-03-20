@@ -203,6 +203,11 @@ def parse_eval_args() -> argparse.Namespace:
         default="context"
     )
     parser.add_argument(
+        "--answer_key",
+        nargs='+',
+        default=["value"]
+    )
+    parser.add_argument(
         "--cutting_context",
         action="store_true",
         default=False
@@ -318,6 +323,7 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
         context_length = args.context_length,
         sequence_length = args.sequence_length,
         context_key = args.context_key,
+        answer_key = args.answer_key,
         cutting_context = args.cutting_context
     )
 
