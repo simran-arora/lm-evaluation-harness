@@ -161,6 +161,26 @@ class TaskConfig(dict):
             except (TypeError, OSError):
                 return str(value)
 
+def generate_asso_pairs(tokenizer = None):
+    pair_len = random.randint(5,15)
+    pairs = []
+    keys = []
+    vals = []
+    for i in range(pair_len):
+        key = tokenizer.decode([random.randint(1,10000)])
+        #key = chr(random.randint(0,26) + 65)
+        # while key in keys:
+        #    key = chr(random.randint(0,26) + 65) 
+        val = tokenizer.decode([random.randint(1,10000)])
+        # while val  in vals:
+        #     val = str(random.randint(0,30))
+        pairs.append([key,val])
+    query_len = random.randint(2, pair_len+1)
+    queries = list(range(0, pair_len))
+    random.shuffle(queries)
+    queries = queries[:query_len]
+    return pairs, queries
+
 
 class Task(abc.ABC):
     """A task represents an entire benchmark including its dataset, problems,
@@ -369,9 +389,26 @@ class Task(abc.ABC):
             enumerate(shuffled_docs), rank, world_size, limit
         ):
             # sample fewshot context #TODO: need to offset doc_id by rank now!
+            if context_key == "associative_recall":
+                doc_short = {}
+                doc_short["new_id"] = len(instances) + 1
+                doc_short["kv_pairs"], doc_short["query_ids"] = generate_asso_pairs(tokenizer = tokenizer )
+                fewshot_ctx = self.fewshot_context(
+                    doc_short,
+                    0 if self.config.num_fewshot is None else self.config.num_fewshot,
+                ) 
+                inst = self.construct_requests(
+                    doc=doc_short,
+                    ctx=fewshot_ctx,
+                    metadata=(self.config["task"], doc_short["new_id"], self.config.repeats),
+                )
+                new_doc_set[doc_short["new_id"]] = doc_short
+                if not isinstance(inst, list):
+                    inst = [inst]
+                instances.extend(inst)
+                continue
             if cutting_context:
                 pad = (context_length // 2) + 50
-                #doc[context_key] = doc[context_key].replace("--", " ")
                 doc_tokens = tokenizer.batch_encode_plus(
                     [doc[context_key]], return_tensors="pt", 
                     padding=True, truncation=True, 
@@ -387,7 +424,7 @@ class Task(abc.ABC):
                     is_appear = True
                     for key in answer_key:
                         answer = doc[key]
-                        if(answer == "" or len(answer) < 1):
+                        if(answer == "" or len(answer) <= 1):
                             continue
                         answer_pattern = re.compile(re.escape(answer), re.IGNORECASE)
                         if answer_match := answer_pattern.search(context):
