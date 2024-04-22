@@ -205,7 +205,7 @@ def parse_eval_args() -> argparse.Namespace:
     parser.add_argument(
         "--answer_key",
         nargs='+',
-        default=["value"]
+        default=[]
     )
     parser.add_argument(
         "--cutting_context",

@@ -368,7 +368,7 @@ class Task(abc.ABC):
     def doc_to_target(self, doc):
         pass
 
-    def build_all_requests(self, limit=None, rank=None, world_size=None, tokenizer = None, context_length = 1000, sequence_length = 2048, context_key = "context", cutting_context = False, answer_key = ["value"]) -> None:
+    def build_all_requests(self, limit=None, rank=None, world_size=None, tokenizer = None, context_length = 1000, sequence_length = 2048, context_key = "context", cutting_context = False, answer_key = []) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
         if self.has_test_docs():
             docs = self.test_docs()
@@ -420,6 +420,25 @@ class Task(abc.ABC):
                 while start < len(doc_tokens):
                     context_tokens = doc_tokens[start: min(start + context_length - pad, len(doc_tokens))]
                     context = tokenizer.decode(context_tokens)
+                    if(answer_key == []):
+                        doc_short = dict(doc)
+                        doc_short["new_id"] = len(instances) + 1
+                        doc_short[context_key] = context
+                        fewshot_ctx = self.fewshot_context(
+                            doc_short,
+                            0 if self.config.num_fewshot is None else self.config.num_fewshot,
+                        ) 
+                        inst = self.construct_requests(
+                            doc=doc_short,
+                            ctx=fewshot_ctx,
+                            metadata=(self.config["task"], doc_short["new_id"], self.config.repeats),
+                        )
+                        new_doc_set[doc_short["new_id"]] = doc_short
+                        if not isinstance(inst, list):
+                            inst = [inst]
+                        instances.extend(inst)
+                        start += context_length - pad
+                        break
                     pos_start = -1
                     is_appear = True
                     for key in answer_key:

@@ -46,7 +46,7 @@ def simple_evaluate(
     context_length: int = 1000,
     sequence_length: int = 2048,
     context_key: str = "context",
-    answer_key: list = ["value"],
+    answer_key: list = [],
     cutting_context: bool = False
 ):
     """Instantiate and evaluate a model on a list of tasks.
@@ -251,7 +251,7 @@ def evaluate(
     context_length: int = 1000,
     sequence_length: int = 2048,
     context_key: str = "context",
-    answer_key: list = ["value"],
+    answer_key: list = [],
     cutting_context: bool = False
 ):
     """Instantiate and evaluate a model on a list of tasks.
